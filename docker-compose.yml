@@ -1,0 +1,59 @@
+version: "3.0"
+
+networks:
+  evohtmx:
+    driver: bridge
+
+services:
+  evo:
+    container_name: evo
+    build:
+      context: ./
+      dockerfile: ./Docker/evo/Dockerfile
+    volumes:
+      - ./:/var/www/html/
+      - ./Docker/logs:/var/log/
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      DANGEROUSLY_DISABLE_HOST_CHECK: "true"
+    links:
+      - db:db
+    depends_on:
+      - db
+    ports:
+      - "80:80"
+    stdin_open: true
+    restart: on-failure
+    networks:
+      - evohtmx
+
+  db:
+    container_name: db
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOTPASSWORD}
+    volumes:
+      - ./Docker/dump:/docker-entrypoint-initdb.d
+      - ./Docker/conf:/etc/mysql/conf.d
+      - persistent:/var/lib/mysql
+    networks:
+      - evohtmx
+
+  phpmyadmin:
+    container_name: pma
+    image: phpmyadmin/phpmyadmin
+    links:
+      - db:db
+    ports:
+      - "5700:80"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOTPASSWORD}
+    networks:
+      - evohtmx
+
+volumes:
+  persistent:

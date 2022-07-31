@@ -1,0 +1,4 @@
+# Robots for handless
+User-agent: *
+Disallow: /v1/
+Disallow: /v1/*
