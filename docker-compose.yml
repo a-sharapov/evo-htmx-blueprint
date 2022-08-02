@@ -30,6 +30,8 @@ services:
   db:
     container_name: db
     image: mysql:8.0
+    env_file:
+      - .env.docker
     ports:
       - "3306:3306"
     command: --default-authentication-plugin=mysql_native_password
@@ -46,6 +48,8 @@ services:
   phpmyadmin:
     container_name: pma
     image: phpmyadmin/phpmyadmin
+    env_file:
+      - .env.docker
     links:
       - db:db
     ports:
