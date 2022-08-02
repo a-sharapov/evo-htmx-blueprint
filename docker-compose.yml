@@ -6,13 +6,12 @@ networks:
 
 services:
   evo:
-    container_name: evo
+    container_name: evolution
     build:
       context: ./
       dockerfile: ./Docker/evo/Dockerfile
     volumes:
       - ./:/var/www/html/
-      - ./Docker/logs:/var/log/
     environment:
       CHOKIDAR_USEPOLLING: "true"
       DANGEROUSLY_DISABLE_HOST_CHECK: "true"
@@ -21,17 +20,17 @@ services:
     depends_on:
       - db
     ports:
-      - "80:80"
+      - "5000:80"
     stdin_open: true
     restart: on-failure
     networks:
       - evohtmx
 
   db:
-    container_name: db
+    container_name: database
     image: mysql:8.0
     env_file:
-      - .env.docker
+      - /Docker/.env
     ports:
       - "3306:3306"
     command: --default-authentication-plugin=mysql_native_password
@@ -46,10 +45,10 @@ services:
       - evohtmx
 
   phpmyadmin:
-    container_name: pma
+    container_name: phpmyadmin
     image: phpmyadmin/phpmyadmin
     env_file:
-      - .env.docker
+      - /Docker/.env
     links:
       - db:db
     ports:
