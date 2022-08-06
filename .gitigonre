@@ -1,3 +1,6 @@
+# cache
+/core/storage/*
+
 # assets
 /assets/.thumbs/*
 !/assets/.thumbs/index.html
