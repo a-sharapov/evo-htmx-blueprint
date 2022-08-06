@@ -12,7 +12,7 @@
 docker-compose up --build
 ````
 **Веб-сервер** развёрнут и готов к работе, по адресу: ```http://localhost:5000```
-**Административная часть** CMS: ```http://localhost:5000/app```
+**Административная часть** CMS: ```http://localhost:5000/manager```
 **PHPMyAdmin**: ```http://localhost:5700```
 
 
