@@ -23,6 +23,12 @@ services:
       - "5000:80"
     stdin_open: true
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 1s
     networks:
       - evohtmx
 
@@ -34,9 +40,6 @@ services:
     ports:
       - "3306:3306"
     command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOTPASSWORD}
     volumes:
       - ./Docker/dump:/docker-entrypoint-initdb.d
       - ./Docker/conf:/etc/mysql/conf.d
@@ -53,8 +56,12 @@ services:
       - db:db
     ports:
       - "5700:80"
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOTPASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5700"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 1s
     networks:
       - evohtmx
 
