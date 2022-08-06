@@ -56,12 +56,6 @@ services:
       - db:db
     ports:
       - "5700:80"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5700"]
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 1s
     networks:
       - evohtmx
 
