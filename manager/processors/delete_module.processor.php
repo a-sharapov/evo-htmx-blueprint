@@ -12,7 +12,7 @@ if($id==0) {
 }
 
 // Set the item name for logger
-$name = EvolutionCMS\Models\SiteModule::select("name")->firstOrFail($id)->name;
+$name = $modx->db->getValue($modx->db->select('name', $modx->getFullTableName('site_modules'), "id='{$id}'"));
 $_SESSION['itemname'] = $name;
 
 // invoke OnBeforeModFormDelete event
@@ -22,11 +22,13 @@ $modx->invokeEvent("OnBeforeModFormDelete",
 	));
 
 // delete the module.
-EvolutionCMS\Models\SiteModule::destroy($id);
+$modx->db->delete($modx->getFullTableName('site_modules'), "id='{$id}'");
+
 // delete the module dependencies.
-EvolutionCMS\Models\SiteModuleDepobj::where('module',$id)->delete();
+$modx->db->delete($modx->getFullTableName('site_module_depobj'), "module='{$id}'");
+
 // delete the module user group access.
-EvolutionCMS\Models\SiteModuleAccess::where('module',$id)->delete();
+$modx->db->delete($modx->getFullTableName('site_module_access'), "module='{$id}'");
 
 // invoke OnModFormDelete event
 $modx->invokeEvent("OnModFormDelete",

@@ -7,23 +7,23 @@ if (!$modx->hasPermission('save_chunk')) {
 }
 
 $id = (int)$_POST['id'];
-$snippet = $_POST['post'];
-$name = trim($_POST['name']);
-$description = $_POST['description'];
+$snippet = $modx->db->escape($_POST['post']);
+$name = $modx->db->escape(trim($_POST['name']));
+$description = $modx->db->escape($_POST['description']);
 $locked = isset($_POST['locked']) && $_POST['locked'] == 'on' ? 1 : 0;
 $disabled = isset($_POST['disabled']) && $_POST['disabled'] == "on" ? '1' : '0';
-$createdon = $editedon = time() + $modx->config['server_offset_time'];
+$currentdate = time() + $modx->config['server_offset_time'];
 
 //Kyle Jaebker - added category support
 if (empty($_POST['newcategory']) && $_POST['categoryid'] > 0) {
-    $category = (int)$_POST['categoryid'];
+    $categoryid = (int)$_POST['categoryid'];
 } elseif (empty($_POST['newcategory']) && $_POST['categoryid'] <= 0) {
-    $category = 0;
+    $categoryid = 0;
 } else {
     include_once(MODX_MANAGER_PATH . 'includes/categories.inc.php');
-    $category = checkCategory($_POST['newcategory']);
-    if (!$category) {
-        $category = newCategory($_POST['newcategory']);
+    $categoryid = checkCategory($_POST['newcategory']);
+    if (!$categoryid) {
+        $categoryid = newCategory($_POST['newcategory']);
     }
 }
 
@@ -44,18 +44,31 @@ switch ($_POST['mode']) {
         ));
 
         // disallow duplicate names for new chunks
-        if (EvolutionCMS\Models\SiteHtmlsnippet::where('name','=',$name)->first()) {
-            $modx->getManagerApi()->saveFormValues(77);
+        $rs = $modx->db->select('COUNT(*)', $modx->getFullTableName('site_htmlsnippets'), "name='{$name}'");
+        $count = $modx->db->getValue($rs);
+        if ($count > 0) {
+            $modx->manager->saveFormValues(77);
             $modx->webAlertAndQuit(sprintf($_lang['duplicate_name_found_general'], $_lang['chunk'], $name), "index.php?a=77");
         }
 
         //do stuff to save the new doc
-        $id = EvolutionCMS\Models\SiteHtmlsnippet::create(compact('name', 'description','snippet','locked','category','editor_type','editor_name','disabled','createdon','editedon'))->getKey();
+        $newid = $modx->db->insert(array(
+            'name' => $name,
+            'description' => $description,
+            'snippet' => $snippet,
+            'locked' => $locked,
+            'category' => $categoryid,
+            'editor_type' => $editor_type,
+            'editor_name' => $editor_name,
+            'disabled' => $disabled,
+            'createdon' => $currentdate,
+            'editedon' => $currentdate
+        ), $modx->getFullTableName('site_htmlsnippets'));
 
         // invoke OnChunkFormSave event
         $modx->invokeEvent("OnChunkFormSave", array(
             "mode" => "new",
-            "id" => $id
+            "id" => $newid
         ));
 
         // Set the item name for logger
@@ -66,7 +79,7 @@ switch ($_POST['mode']) {
 
         // finished emptying cache - redirect
         if ($_POST['stay'] != '') {
-            $a = ($_POST['stay'] == '2') ? "78&id=$id" : "77";
+            $a = ($_POST['stay'] == '2') ? "78&id=$newid" : "77";
             $header = "Location: index.php?a=" . $a . "&r=2&stay=" . $_POST['stay'];
             header($header);
         } else {
@@ -82,15 +95,24 @@ switch ($_POST['mode']) {
         ));
 
         // disallow duplicate names for chunks
-        if (EvolutionCMS\Models\SiteHtmlsnippet::where('id','!=',$id)->where('name','=',$name)->first()) {
-            $modx->getManagerApi()->saveFormValues(78);
+        $rs = $modx->db->select('COUNT(*)', $modx->getFullTableName('site_htmlsnippets'), "name='{$name}' AND id!='{$id}'");
+        if ($modx->db->getValue($rs) > 0) {
+            $modx->manager->saveFormValues(78);
             $modx->webAlertAndQuit(sprintf($_lang['duplicate_name_found_general'], $_lang['chunk'], $name), "index.php?a=78&id={$id}");
         }
 
         //do stuff to save the edited doc
-        $chunk = EvolutionCMS\Models\SiteHtmlsnippet::find($id);
-
-        $chunk->update(compact('name', 'description','snippet','locked','category','editor_type','editor_name','disabled','editedon'));
+        $modx->db->update(array(
+            'name' => $name,
+            'description' => $description,
+            'snippet' => $snippet,
+            'locked' => $locked,
+            'category' => $categoryid,
+            'editor_type' => $editor_type,
+            'editor_name' => $editor_name,
+            'disabled' => $disabled,
+            'editedon' => $currentdate
+        ), $modx->getFullTableName('site_htmlsnippets'), "id='{$id}'");
 
         // invoke OnChunkFormSave event
         $modx->invokeEvent("OnChunkFormSave", array(

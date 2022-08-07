@@ -246,17 +246,20 @@ evo.collapse = function(a, b) {
   } else {
     a = 'string' === typeof a ? document.querySelectorAll(a) : a;
   }
-  b = b || 'tab-body'
+  var h = {
+    containerClass: b && b.containerClass || 'tab-body'
+  };
+
   for (var i = 0; i < a.length; i++) {
-    if (a[i].nextElementSibling && a[i].nextElementSibling.classList.contains(b)) {
+    if (a[i].nextElementSibling && a[i].nextElementSibling.classList.contains(h.containerClass)) {
       a[i].nextElementSibling.classList.add('collapse', 'in');
       a[i].onclick = function() {
-        if (this.nextElementSibling.classList.contains('in')) {
-          this.nextElementSibling.classList.remove('in');
-          this.classList.add('collapsed');
+        if (a[i].nextElementSibling.classList.contains('in')) {
+          a[i].nextElementSibling.classList.remove('in');
+          a[i].classList.add('collapsed');
         } else {
-          this.nextElementSibling.classList.add('in');
-          this.classList.remove('collapsed');
+          a[i].nextElementSibling.classList.add('in');
+          a[i].classList.remove('collapsed');
         }
       };
     }
@@ -265,15 +268,15 @@ evo.collapse = function(a, b) {
 
 // check connection to server
 evo.checkConnectionToServer = function() {
+  /*var xhr = new (window.ActiveXObject || XMLHttpRequest)('Microsoft.XMLHTTP');
+  xhr.open('GET', evo.urlCheckConnectionToServer + '?time=' + new Date().getTime(), false);
+  try {
+    xhr.send();
+    return (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304);
+  } catch (error) {
+    return false;
+  }*/
   return true;
-  // var xhr = new (window.ActiveXObject || XMLHttpRequest)('Microsoft.XMLHTTP');
-  //   // xhr.open('GET', evo.urlCheckConnectionToServer + '?time=' + new Date().getTime(), false);
-  //   // try {
-  //   //   xhr.send();
-  //   //   return (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304);
-  //   // } catch (error) {
-  //   //   return false;
-  //   // }
 };
 
 function document_onload() {
@@ -283,11 +286,11 @@ function document_onload() {
   if (actionButtons !== null && actionSelect !== null) {
     var actionPlus = actionButtons.querySelector('.plus'), actionSaveButton = actionButtons.querySelector('a#Button1') || actionButtons.querySelector('#Button1 > a');
     actionPlus.classList.add('dropdown-toggle');
-    actionStay['stay1'] = '<i class="' + evo.style.icon_file + '"></i>';
-    actionStay['stay2'] = '<i class="' + evo.style.icon_pencil + '"></i>';
-    actionStay['stay3'] = '<i class="' + evo.style.icon_reply + '"></i>';
+    actionStay['stay1'] = '<i class="' + evo.style.actions_file + '"></i>';
+    actionStay['stay2'] = '<i class="' + evo.style.actions_pencil + '"></i>';
+    actionStay['stay3'] = '<i class="' + evo.style.actions_reply + '"></i>';
     if (actionSelect.value) {
-      actionSaveButton.innerHTML += '<i class="' + evo.style.icon_plus + '"></i><span> + </span>' + actionStay['stay' + actionSelect.value] + '<span>' + actionSelect.children['stay' + actionSelect.value].innerHTML + '</span>';
+      actionSaveButton.innerHTML += '<i class="' + evo.style.actions_plus + '"></i><span> + </span>' + actionStay['stay' + actionSelect.value] + '<span>' + actionSelect.children['stay' + actionSelect.value].innerHTML + '</span>';
     }
     var actionSelectNewOption = null, actionSelectOptions = actionSelect.children, div = document.createElement('div');
     div.className = 'dropdown-menu';
@@ -315,7 +318,6 @@ function document_onload() {
     };
   }
   evo.tooltips('[data-tooltip]');
-  //evo.collapse('.panel-heading', 'panel-collapse');
 
   if (document.forms.length && document.forms.mutate && window.frameElement.parentNode.parentNode.classList.contains('evo-popup')) {
     window.focus();
@@ -460,68 +462,3 @@ if (typeof window.addEventListener !== 'undefined') {
 window.addEventListener('unload', function() {
   clearTimeout(timerForUnload);
 });
-
-var lastImageCtrl;
-var lastFileCtrl;
-
-function OpenServerBrowser(url, width, height)
-{
-  var iLeft = (screen.width - width) / 2;
-  var iTop = (screen.height - height) / 2;
-
-  var sOptions = 'toolbar=no,status=no,resizable=yes,dependent=yes';
-  sOptions += ',width=' + width;
-  sOptions += ',height=' + height;
-  sOptions += ',left=' + iLeft;
-  sOptions += ',top=' + iTop;
-
-  var oWindow = window.open(url, 'FCKBrowseWindow', sOptions);
-}
-
-function BrowseServer(ctrl)
-{
-  lastImageCtrl = ctrl;
-  var w = screen.width * 0.7;
-  var h = screen.height * 0.7;
-  OpenServerBrowser(evo.MODX_MANAGER_URL + 'media/browser/' + evo.config.which_browser + '/browser.php?Type=images', w, h);
-}
-
-function BrowseFileServer(ctrl)
-{
-  lastFileCtrl = ctrl;
-  var w = screen.width * 0.7;
-  var h = screen.height * 0.7;
-  OpenServerBrowser(evo.MODX_MANAGER_URL + 'media/browser/' + evo.config.which_browser + '/browser.php?Type=files', w, h);
-}
-
-function SetUrlChange(el)
-{
-  if ('createEvent' in document) {
-    var evt = document.createEvent('HTMLEvents');
-    evt.initEvent('change', false, true);
-    el.dispatchEvent(evt);
-  } else {
-    el.fireEvent('onchange');
-  }
-}
-
-function SetUrl(url, width, height, alt)
-{
-  if (lastFileCtrl) {
-    var c = document.getElementById(lastFileCtrl);
-    if (c && c.value !== url) {
-      c.value = url;
-      SetUrlChange(c);
-    }
-    lastFileCtrl = '';
-  } else if (lastImageCtrl) {
-    var c = document.getElementById(lastImageCtrl);
-    if (c && c.value !== url) {
-      c.value = url;
-      SetUrlChange(c);
-    }
-    lastImageCtrl = '';
-  } else {
-    return;
-  }
-}

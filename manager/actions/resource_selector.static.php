@@ -6,7 +6,7 @@ if (!$modx->hasPermission('edit_module')) {
     $modx->webAlertAndQuit($_lang["error_no_privileges"]);
 }
 
-$mxla = ManagerTheme::getLang();
+$mxla = $modx_lang_attribute ? $modx_lang_attribute : 'en';
 
 /**
  * Resource Selector
@@ -26,54 +26,43 @@ $rt = strtolower($_REQUEST['rt']);
 $sm = strtolower($_REQUEST['sm']);
 
 // get search string
-$query = $_REQUEST['search'];
+$query = isset($_REQUEST['search']) ? $_REQUEST['search'] : '';
+$sqlQuery = $modx->db->escape($query);
 
 // select SQL
 switch ($rt) {
     case "snip":
         $title = $_lang["snippet"];
-        $ds = \EvolutionCMS\Models\SiteSnippet::query()->select('id', 'name', 'description')->orderBy('name');
-        if(isset($query) && $query != ''){
-            $ds = $ds->where(function ($q) use ($query) {
-                $q->where('name', 'LIKE', '%' . $query . '%')
-                    ->orWhere('description', 'LIKE', '%' . $query . '%');
-            });
-        }
+        $ds = $modx->db->select('id,name,description', $modx->getFullTableName("site_snippets"), ($sqlQuery ? "(name LIKE '%{$sqlQuery}%') OR (description LIKE '%{$sqlQuery}%')" : ""), 'name');
         break;
 
     case "tpl":
         $title = $_lang["template"];
-        $ds = \EvolutionCMS\Models\SiteTemplate::query()->select('id', 'templatename as name', 'description')->orderBy('name');
+        $ds = $modx->db->select('id,templatename as name,description', $modx->getFullTableName("site_templates"), ($sqlQuery ? "(templatename LIKE '%{$sqlQuery}%') OR (description LIKE '%{$sqlQuery}%')" : ""), 'templatename');
         break;
 
     case("tv"):
         $title = $_lang["tv"];
-        $ds = \EvolutionCMS\Models\SiteTmplvar::query()->select('id', 'name', 'description')->orderBy('name');
+        $ds = $modx->db->select('id,name,description', $modx->getFullTableName("site_tmplvars"), ($sqlQuery ? "(name LIKE '%{$sqlQuery}%') OR (description LIKE '%{$sqlQuery}%')" : ""), 'name');
         break;
 
     case("chunk"):
         $title = $_lang["chunk"];
-        $ds = \EvolutionCMS\Models\SiteHtmlsnippet::query()->select('id', 'name', 'description')->orderBy('name');
+        $ds = $modx->db->select('id,name,description', $modx->getFullTableName("site_htmlsnippets"), ($sqlQuery ? "(name LIKE '%{$sqlQuery}%') OR (description LIKE '%{$sqlQuery}%')" : ""), 'name');
         break;
 
     case("plug"):
         $title = $_lang["plugin"];
-        $ds = \EvolutionCMS\Models\SitePlugin::query()->select('id', 'name', 'description')->orderBy('name');
+        $ds = $modx->db->select('id,name,description', $modx->getFullTableName("site_plugins"), ($sqlQuery ? "(name LIKE '%{$sqlQuery}%') OR (description LIKE '%{$sqlQuery}%')" : ""), 'name');
         break;
 
     case("doc"):
         $title = $_lang["resource"];
-        $ds = \EvolutionCMS\Models\SiteContent::query()->select('id', 'pagetitle as name', 'longtitle as description')->orderBy('name');
+        $ds = $modx->db->select('id,pagetitle as name,longtitle as description', $modx->getFullTableName("site_content"), ($sqlQuery ? "(pagetitle LIKE '%{$sqlQuery}%') OR (longtitle LIKE '%{$sqlQuery}%')" : ""), 'pagetitle');
         break;
 
 }
 
-if(isset($query) && $query != ''){
-    $ds = $ds->where(function ($q) use ($query) {
-        $q->where('name', 'LIKE', '%' . $query . '%')
-            ->orWhere('description', 'LIKE', '%' . $query . '%');
-    });
-}
 include_once MODX_MANAGER_PATH . "includes/header.inc.php";
 ?>
 <script language="JavaScript" type="text/javascript">
@@ -149,13 +138,13 @@ include_once MODX_MANAGER_PATH . "includes/header.inc.php";
 </script>
 
 <h1>
-    <?= $title . " - " . $_lang['element_selector_title'] ?><i class="<?= $_style['icon_question_circle'] ?> help"></i>
+    <?= $title . " - " . $_lang['element_selector_title'] ?><i class="fa fa-question-circle help"></i>
 </h1>
 
 <div id="actions">
     <div class="btn-group">
-        <a id="Button1" class="btn btn-success" href="javascript:;" onclick="saveSelection()"><i class="<?= $_style['icon_add'] ?>"></i> <span><?= $_lang['insert'] ?></span></a>
-        <a id="Button5" class="btn btn-secondary" href="javascript:;" onclick="window.close()"><i class="<?= $_style['icon_cancel'] ?>"></i> <span><?= $_lang['cancel'] ?></span></a>
+        <a id="Button1" class="btn btn-success" href="javascript:;" onclick="saveSelection()"><i class="<?= $_style['actions_add'] ?>"></i> <span><?= $_lang['insert'] ?></span></a>
+        <a id="Button5" class="btn btn-secondary" href="javascript:;" onclick="window.close()"><i class="<?= $_style['actions_cancel'] ?>"></i> <span><?= $_lang['cancel'] ?></span></a>
     </div>
 </div>
 
@@ -164,9 +153,9 @@ include_once MODX_MANAGER_PATH . "includes/header.inc.php";
 </div>
 
 <form name="selector" method="get">
-    <input type="hidden" name="id" value="<?= $id ?>" />
-    <input type="hidden" name="a" value="<?= $modx->getManagerApi()->action ?>" />
-    <input type="hidden" name="listmode" value="<?= $_REQUEST['listmode'] ?>" />
+    <input type="hidden" name="id" value="<?= (isset($id) ? $id : 0) ?>" />
+    <input type="hidden" name="a" value="<?= $modx->manager->action ?>" />
+    <input type="hidden" name="listmode" value="<?= (isset($_REQUEST['listmode']) ? $_REQUEST['listmode'] : '') ?>" />
     <input type="hidden" name="op" value="" />
     <input type="hidden" name="rt" value="<?= $rt ?>" />
     <input type="hidden" name="rt" value="<?= $rt ?>" />
@@ -179,10 +168,10 @@ include_once MODX_MANAGER_PATH . "includes/header.inc.php";
                 <div class="col-sm-12">
                     <div class="input-group float-right w-auto">
                         <input class="form-control form-control-sm" name="search" type="text" value="<?= $query ?>" placeholder="<?= $_lang["search"] ?>" />
-                        <div class="input-group-append">
-                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["search"] ?>" onclick="searchResource();return false;"><i class="<?= $_style['icon_search'] ?>"></i></a>
-                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["reset"] ?>" onclick="resetSearch();return false;"><i class="<?= $_style['icon_refresh'] ?>"></i></a>
-                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["list_mode"] ?>" onclick="changeListMode();return false;"><i class="<?= $_style['icon_table'] ?>"></i></a>
+                        <div class="input-group-btn">
+                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["search"] ?>" onclick="searchResource();return false;"><i class="<?= $_style['actions_search'] ?>"></i></a>
+                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["reset"] ?>" onclick="resetSearch();return false;"><i class="<?= $_style['actions_refresh'] ?>"></i></a>
+                            <a class="btn btn-secondary btn-sm" href="javascript:;" title="<?= $_lang["list_mode"] ?>" onclick="changeListMode();return false;"><i class="<?= $_style['actions_table'] ?>"></i></a>
                         </div>
                     </div>
                 </div>
@@ -190,7 +179,8 @@ include_once MODX_MANAGER_PATH . "includes/header.inc.php";
             <div class="row">
                 <div class="table-responsive">
                     <?php
-                    $grd = new \EvolutionCMS\Support\DataGrid('', $ds, 0); // set page size to 0 t show all items
+                    include_once MODX_MANAGER_PATH . "includes/controls/datagrid.class.php";
+                    $grd = new DataGrid('', $ds, $number_of_results); // set page size to 0 t show all items
                     $grd->noRecordMsg = $_lang["no_records_found"];
                     $grd->cssClass = "table data nowrap";
                     $grd->columnHeaderClass = "tableHeader";
@@ -200,7 +190,7 @@ include_once MODX_MANAGER_PATH . "includes/header.inc.php";
                     $grd->colTypes = "template:<input type='" . ($sm == 'm' ? 'checkbox' : 'radio') . "' name='id[]' value='[+id+]' onclick='setCheckbox(this);'> [+value+]";
                     $grd->colWidths = "45%";
                     $grd->fields = "name,description";
-                    if ($_REQUEST['listmode'] == '1') {
+                    if (isset($_REQUEST['listmode']) && $_REQUEST['listmode'] == '1') {
                         $grd->pageSize = 0;
                     }
                     echo $grd->render();

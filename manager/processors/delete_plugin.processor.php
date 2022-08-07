@@ -12,7 +12,7 @@ if($id==0) {
 }
 
 // Set the item name for logger
-$name = EvolutionCMS\Models\SitePlugin::select("name")->firstOrFail($id)->name;
+$name = $modx->db->getValue($modx->db->select('name', $modx->getFullTableName('site_plugins'), "id='{$id}'"));
 $_SESSION['itemname'] = $name;
 
 // invoke OnBeforePluginFormDelete event
@@ -22,9 +22,11 @@ $modx->invokeEvent("OnBeforePluginFormDelete",
 	));
 
 // delete the plugin.
-EvolutionCMS\Models\SitePlugin::destroy($id);
+$modx->db->delete($modx->getFullTableName('site_plugins'), "id='{$id}'");
+
 // delete the plugin events.
-EvolutionCMS\Models\SitePluginEvent::where('pluginid',$id)->delete();
+$modx->db->delete($modx->getFullTableName('site_plugin_events'), "pluginid='{$id}'");
+
 // invoke OnPluginFormDelete event
 $modx->invokeEvent("OnPluginFormDelete",
 	array(

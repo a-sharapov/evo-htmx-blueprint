@@ -1,13 +1,6 @@
 <?php
 //Helper functions for categories
 //Kyle Jaebker - 08/07/06
-use EvolutionCMS\Models\Category;
-use EvolutionCMS\Models\SiteHtmlsnippet;
-use EvolutionCMS\Models\SiteModule;
-use EvolutionCMS\Models\SitePlugin;
-use EvolutionCMS\Models\SiteSnippet;
-use EvolutionCMS\Models\SiteTemplate;
-use EvolutionCMS\Models\SiteTmplvar;
 
 /**
  * Create a new category
@@ -16,7 +9,13 @@ use EvolutionCMS\Models\SiteTmplvar;
  */
 function newCategory($newCat)
 {
-    $categoryId = \EvolutionCMS\Models\Category::query()->insertGetId(['category'=>$newCat]);
+    $modx = evolutionCMS();
+    $useTable = $modx->getFullTableName('categories');
+    $categoryId = $modx->db->insert(
+        array(
+            'category' => $modx->db->escape($newCat),
+        ), $useTable);
+
     if (!$categoryId) {
         $categoryId = 0;
     }
@@ -32,9 +31,11 @@ function newCategory($newCat)
  */
 function checkCategory($newCat = '')
 {
-    $newCatCheck = \EvolutionCMS\Models\Category::query()->where('category', $newCat)->first();
-    if (!is_null($newCatCheck)) {
-        return (int)$newCatCheck->id;
+    $modx = evolutionCMS();
+    $newCat = $modx->db->escape($newCat);
+    $cats = $modx->db->select('id', $modx->getFullTableName('categories'), "category='{$newCat}'");
+    if ($cat = $modx->db->getValue($cats)) {
+        return (int)$cat;
     }
 
     return 0;
@@ -63,8 +64,11 @@ function getCategory($category = '')
  */
 function getCategories()
 {
-    $categories = Category::orderBy('category', 'ASC')->get()->toArray();
-    foreach ($categories as $row) {
+    $modx = evolutionCMS();
+    $useTable = $modx->getFullTableName('categories');
+    $cats = $modx->db->select('id, category', $modx->getFullTableName('categories'), '', 'category');
+    $resourceArray = array();
+    while ($row = $modx->db->getRow($cats)) {
         $row['category'] = stripslashes($row['category']);
         $resourceArray[] = $row;
     }
@@ -79,19 +83,21 @@ function getCategories()
  */
 function deleteCategory($catId = 0)
 {
+    $modx = evolutionCMS();
     if ($catId) {
-        SiteTemplate::where('category', $catId)->update(array('category' => 0));
-
-        SiteTmplvar::where('category', $catId)->update(array('category' => 0));
-
-        SiteHtmlsnippet::where('category', $catId)->update(array('category' => 0));
-
-        SiteSnippet::where('category', $catId)->update(array('category' => 0));
-
-        SitePlugin::where('category', $catId)->update(array('category' => 0));
-
-        SiteModule::where('category', $catId)->update(array('category' => 0));
-
-        Category::where('id', $catId)->delete();
+        $resetTables = array(
+            'site_plugins',
+            'site_snippets',
+            'site_htmlsnippets',
+            'site_templates',
+            'site_tmplvars',
+            'site_modules'
+        );
+        foreach ($resetTables as $n => $v) {
+            $useTable = $modx->getFullTableName($v);
+            $modx->db->update(array('category' => 0), $useTable, "category='{$catId}'");
+        }
+        $catTable = $modx->getFullTableName('categories');
+        $modx->db->delete($catTable, "id='{$catId}'");
     }
 }

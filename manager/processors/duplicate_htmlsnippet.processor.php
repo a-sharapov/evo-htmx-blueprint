@@ -12,19 +12,25 @@ if($id==0) {
 }
 
 // count duplicates
-$htmlsnippet = EvolutionCMS\Models\SiteHtmlsnippet::findOrFail($id);
-$name = $htmlsnippet->name;
-$count = EvolutionCMS\Models\SiteHtmlsnippet::where('name', 'like', $name.' '.$_lang['duplicated_el_suffix'].'%')->count();
+$name = $modx->db->getValue($modx->db->select('name', $modx->getFullTableName('site_htmlsnippets'), "id='{$id}'"));
+$count = $modx->db->getRecordCount($modx->db->select('name', $modx->getFullTableName('site_htmlsnippets'), "name LIKE '{$name} {$_lang['duplicated_el_suffix']}%'"));
 if($count>=1) $count = ' '.($count+1);
 else $count = '';
 
 // duplicate htmlsnippet
-$newHtmlsnippet = $htmlsnippet->replicate();
-$newHtmlsnippet->name = $htmlsnippet->name.' '.$_lang['duplicated_el_suffix'].$count;
-$newHtmlsnippet->push();
+$newid = $modx->db->insert(
+	array(
+		'name'=>'',
+		'description'=>'',
+		'snippet'=>'',
+		'category'=>'',
+		), $modx->getFullTableName('site_htmlsnippets'), // Insert into
+	"CONCAT(name, ' {$_lang['duplicated_el_suffix']}{$count}') AS name, description, snippet, category", $modx->getFullTableName('site_htmlsnippets'), "id='{$id}'"); // Copy from
 
-$_SESSION['itemname'] = $newHtmlsnippet->name;
+// Set the item name for logger
+$name = $modx->db->getValue($modx->db->select('name', $modx->getFullTableName('site_htmlsnippets'), "id='{$newid}'"));
+$_SESSION['itemname'] = $name;
 
 // finish duplicating - redirect to new chunk
-$header="Location: index.php?r=2&a=78&id=".$newHtmlsnippet->getKey();
+$header="Location: index.php?r=2&a=78&id=$newid";
 header($header);

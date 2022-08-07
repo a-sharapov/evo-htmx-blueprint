@@ -7,8 +7,7 @@ if(!isset($_GET['id'])) {
 	if(!$modx->hasPermission('remove_locks')) $modx->webAlertAndQuit($_lang["error_no_privileges"]);
 
 	// Remove all locks
-    \EvolutionCMS\Models\ActiveUserLock::query()->truncate();
-    \EvolutionCMS\Models\ActiveUser::query()->truncate();
+	$modx->db->truncate($modx->getFullTableName('active_user_locks'));
 
 	$header = "Location: index.php?a=2";
 	header($header);

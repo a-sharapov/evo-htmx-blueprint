@@ -38,7 +38,7 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
     //lang
     $_lang = array();
     $plugin_path = MODX_BASE_PATH . "assets/plugins/updater/";
-    include($plugin_path . 'lang/en.php');
+    include($plugin_path . 'lang/english.php');
     if (file_exists($plugin_path . 'lang/' . $modx->config['manager_language'] . '.php')) {
         include($plugin_path . 'lang/' . $modx->config['manager_language'] . '.php');
     }
@@ -89,38 +89,37 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
         $_SESSION['updatelink'] = md5(time());
 
         // if a GitHub commit feed
-        if ($type === 'commits') {
+        if ($type == 'commits') {
 
-            $branchPath = 'https://github.com/' . $version . '/' . $type . '/' . $branch;
-            $url = $branchPath . '.atom';
+            // include MagPieRSS
+            require_once('media/rss/rss_fetch.inc');
+            $branchPath = 'https://github.com/'.$version.'/'.$type.'/'.$branch;
+            $url = $branchPath.'.atom';
 
             // create Feed
             $updateButton = '';
-            $rss = fetchCacheableRss($url, null, function (SimpleXMLElement $item) {
-                return $item->getName() === 'entry' ? $item : null;
-            });
-            if (empty($rss)) {
-                $errorsMessage .= '-' . $_lang['error_failedtogetfeed'] . ':' . $url . '<br>';
-                $errors += 1;
-            }
-            $updateButton .= '<div class="table-responsive" style="max-height:200px;"><table class="table data">';
-            $updateButton .= '<thead><tr><th>' . $_lang['table_commitdate'] . '</th><th>' . $_lang['table_titleauthor'] . '</th><th></th></tr></thead><tbody>';
+            $rss = @fetch_rss($url);
+                if (!$rss){
+                    $errorsMessage .= '-'.$_lang['error_failedtogetfeed'].':'.$url.'<br>';
+                    $errors += 1;
+                }
+                $updateButton .= '<div class="table-responsive" style="max-height:200px;"><table class="table data">';
+                $updateButton .= '<thead><tr><th>'.$_lang['table_commitdate'].'</th><th>'.$_lang['table_titleauthor'].'</th><th></th></tr></thead><tbody>';
 
-            $items = array_slice($rss, 0, $commitCount);
-            /** @var SimpleXMLElement $item */
+            $items = array_slice($rss->items, 0, $commitCount);
             foreach ($items as $item) {
-                $commitid = $item->id->__toString();
+                $commitid = $item['id'];
                 $commit = substr($commitid, strpos($commitid, "Commit/") + 7);
-                $href = $item->link['href'];
-                $title = $item->title->__toString();
-                $pubdate = $item->updated->__toString();
+                $href = $item['link'];
+                $title = $item['title'];
+                $pubdate = $item['updated'];
                 $pubdate = $modx->toDateFormat(strtotime($pubdate));
-                $author = $item->author->name->__toString();
+                $author = $item['author_name'];
                 $updateButton .= '<tr><td><b>' . $pubdate . '</b></td><td><a href="' . $href . '" target="_blank">' . $title . '</a> (' . $author . ')</td>';
                 if (($role != 1) AND ($showButton == 'AdminOnly') OR ($showButton == 'hide') OR ($errors > 0)) {
                     $updateButton .= '<td></td></tr>';
-                } else {
-                    $updateButton .= '<td><a onclick="return confirm(\'' . $_lang['are_you_sure_update'] . '\')" target="_parent" title="sha: ' . $commit . '" class="btn btn-sm btn-danger" href="' . MODX_SITE_URL . $_SESSION['updatelink'] . '&sha=' . $commit . '">' . $_lang['updateButtonCommit_txt'] . '</a></td></tr>';
+                }  else {
+                    $updateButton .= '<td><a onclick="return confirm(\''.$_lang['are_you_sure_update'].'\')" target="_parent" title="sha: '.$commit.'" class="btn btn-sm btn-danger" href="'.MODX_SITE_URL.$_SESSION['updatelink'].'&sha='.$commit.'">'.$_lang['updateButtonCommit_txt'].'</a></td></tr>';
                 }
             }
 
@@ -130,16 +129,16 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
             <small style="color:red;font-size:10px"> ' . $_lang['bkp_before_msg'] . '</small><br>
             <small style="color:red;font-size:10px">' . $errorsMessage . '</small>
                     </div>' . $updateButton;
-            // Add widget to end as is always displayed for commits
-            $widgets['updater'] = array(
-                'menuindex' => '1000',
-                'id' => 'updater',
-                'cols' => 'col-sm-12',
-                'icon' => 'fa-exclamation-triangle',
-                'title' => $_lang['system_update'],
-                'body' => $output
-            );
-            $e->output(serialize($widgets));
+                // Add widget to end as is always displayed for commits
+                $widgets['updater'] = array(
+                    'menuindex' =>'1000',
+                    'id' => 'updater',
+                    'cols' => 'col-sm-12',
+                    'icon' => 'fa-exclamation-triangle',
+                    'title' => $_lang['system_update'],
+                    'body' => $output
+                );
+                $e->output(serialize($widgets));
         } else {
             // Create directory 'assets/cache/updater'
             if (!file_exists(MODX_BASE_PATH . 'assets/cache/updater')) {
@@ -147,10 +146,10 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
             }
 
             $output = '';
-
+            
             $currentVersion = $modx->getVersionData();
-            $arrayVersion = explode('.', $currentVersion['version']);
-            $currentMajorVersion = array_shift($arrayVersion);
+            $currentMajorVersion = explode('.', $currentVersion['version']);
+            $currentMajorVersion = array_shift($currentMajorVersion);
 
             if (!file_exists(MODX_BASE_PATH . 'assets/cache/updater/check_' . date("d") . '.json')) {
                 $ch = curl_init();
@@ -162,6 +161,8 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
                 curl_setopt($ch, CURLOPT_REFERER, $url);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_HTTPHEADER, array('User-Agent: updateNotify widget'));
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 4); //timeout in 4 seconds 
                 $info = curl_exec($ch);
                 curl_close($ch);
                 if (substr($info, 0, 1) != '[') {
@@ -169,24 +170,26 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
                 }
                 $info = json_decode($info, true);
 
-                foreach ($info as $key => $val) {
-                    $arrayVersion = explode('.', $val['name']);
-                    if ($currentMajorVersion == array_shift($arrayVersion)) {
-
+                foreach($info as $key => $val ) {
+                    $names = explode('.', $val['name']);
+                    if( $currentMajorVersion == array_shift($names) ){
+                        
                         $git['version'] = $val['name'];
-
-                        if (strpos($val['name'], 'alpha')) {
+                        
+                        if(strpos($val['name'], 'alpha')) {
                             $git['alpha'] = $val['name'];
                             continue;
-                        } elseif (strpos($val['name'], 'beta')) {
+                        }
+                        elseif(strpos($val['name'], 'beta')) {
                             $git['beta'] = $val['name'];
                             continue;
-                        } else {
+                        }
+                        else {
                             $git['stable'] = $val['name'];
                             break;
                         }
                     }
-                }
+                 }
 
                 file_put_contents(MODX_BASE_PATH . 'assets/cache/updater/check_' . date("d") . '.json', json_encode($git));
             } else {
@@ -194,31 +197,21 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
                 $git = json_decode($git, true);
             }
 
-            if ($stableOnly == 'true') {
-                if (isset($git['stable'])) {
-                    if (version_compare($git['version'], $git['stable'], '!=')) {
-                        $git['version'] = $git['stable'];
-                    }
+            if($stableOnly == 'true') {
+                if(version_compare($git['version'], $git['stable'], '!=')) {
+                    $git['version'] = $git['stable'];
                 }
             }
-            if(isset($git['version']))
-                $_SESSION['updateversion'] = $git['version'];
-            else
-                $git['version'] = $currentVersion['version'];
+
+            $_SESSION['updateversion'] = $git['version'];
 
             if (version_compare($git['version'], $currentVersion['version'], '>') && $git['version'] != '') {
                 // get manager role
                 $role = $_SESSION['mgrRole'];
-                if (file_exists(MODX_BASE_PATH.'core/custom/composer.json') OR ($role != 1) AND ($showButton == 'AdminOnly') OR ($showButton == 'hide') OR ($errors > 0)) {
-
-                    if (file_exists(MODX_BASE_PATH.'core/custom/composer.json')) {
-                        $updateButton = '<div class="alert alert-danger" role="alert">'.$_lang['artisan_update'].'</div>';
-                    }else{
-                        $updateButton = '';
-                    }
-
+                if (($role != 1) AND ($showButton == 'AdminOnly') OR ($showButton == 'hide') OR ($errors > 0)) {
+                    $updateButton = '';
                 } else {
-                    $updateButton = '<a target="_parent" onclick="return confirm(\'' . $_lang['are_you_sure_update'] . '\')" href="' . MODX_SITE_URL . $_SESSION['updatelink'] . '" class="btn btn-sm btn-danger">' . $_lang['updateButton_txt'] . ' ' . $git['version'] . '</a><br><br>';
+                    $updateButton = '<a target="_parent" onclick="return confirm(\''.$_lang['are_you_sure_update'].'\')" href="' . MODX_SITE_URL . $_SESSION['updatelink'] . '" class="btn btn-sm btn-danger">' . $_lang['updateButton_txt'] . ' ' . $git['version'] . '</a><br><br>';
                 }
 
                 $output = '<div class="card-body">' . $_lang['cms_outdated_msg'] . ' <strong>' . $git['version'] . '</strong> <br><br>
@@ -241,7 +234,7 @@ if ($role != 1 && $wdgVisibility == 'AdminOnly') {
     }
 
     if ($e->name == 'OnPageNotFound' && isset($_GET['q'])) {
-        if (empty($_SESSION['mgrInternalKey']) || empty($_SESSION['updatelink'])) {
+        if (empty($_SESSION['mgrInternalKey']) || empty($_SESSION['updatelink']) ) {
             return;
         }
         switch ($_GET['q']) {
@@ -389,26 +382,26 @@ removeFolder(__DIR__ . "/temp");
 unlink(__DIR__ . "/evo.zip");
 unlink(__DIR__ . "/update.php");
 header("Location: ' . constant('MODX_SITE_URL') . 'install/index.php?action=mode");');
-                    if ($result === false) {
-                        echo 'Update failed: cannot write to ' . MODX_BASE_PATH . 'update.php';
+                if ($result === false){
+                    echo 'Update failed: cannot write to ' . MODX_BASE_PATH . 'update.php';
+                } else {
+                    if ($type == 'commits') {
+                        $versionGet = $commit;
+                        $versionText = $version . '/' . $type . '/' . $branch . '/' . $commit;
                     } else {
-                        if ($type == 'commits') {
-                            $versionGet = $commit;
-                            $versionText = $version . '/' . $type . '/' . $branch . '/' . $commit;
-                        } else {
-                            $versionGet = $_SESSION['updateversion'];
-                            $versionText = $_SESSION['updateversion'];
-                        }
-                        echo '<html><head></head><body><h2>Evolution Updater</h2>
+                        $versionGet = $_SESSION['updateversion'];
+                        $versionText = $_SESSION['updateversion'];
+                    }
+                    echo '<html><head></head><body><h2>Evolution Updater</h2>
                           <p>Downloading version: <strong>' . $versionText . '</strong>.</p>
                           <p>You will be redirected to the update wizard shortly.</p>
                           <p>Please wait...</p>
                           <script>window.location = "' . MODX_SITE_URL . 'update.php?version=' . $versionGet . '";</script>
                           </body></html>';
-                    }
                 }
-                die();
-                break;
+            }
+            die();
+            break;
         }
     }
 }

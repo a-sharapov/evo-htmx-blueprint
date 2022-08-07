@@ -1,6 +1,6 @@
 
 
-<form name="install" id="install_form" action="/manager/?id=<?php echo (int) $_GET['id']; ?>&a=112&action=install2_step" method="post">
+<form name="install" id="install_form" action="?action=install" method="post">
   <div>
     <input type="hidden" value="1" name="options_selected" />
   </div>
@@ -135,7 +135,7 @@ if ($limit > 0) {
     </p>
 
 </form>
-<script type="text/javascript" src="<?php echo MODX_SITE_URL;?>assets/modules/store/installer/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="<?php echo $modx->config['site_url'];?>assets/modules/store/installer/jquery-1.4.4.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function(){
 

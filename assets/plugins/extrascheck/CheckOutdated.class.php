@@ -36,6 +36,7 @@ class CheckOutdated
 
         $this->tpl = DLTemplate::getInstance($this->modx);
 
+        include_once MODX_BASE_PATH . 'assets/snippets/FormLister/__autoload.php';
         $this->setLang($lang);
     }
 
@@ -46,9 +47,18 @@ class CheckOutdated
     public function load($source)
     {
         if (0 === strpos($source, 'http')) {
-            $data = Cache::remember('users', 24 * 60, function () use($source) {
-                return json_decode(file_get_contents($source), true);
-            });
+            include_once MODX_MANAGER_PATH . 'media/rss/rss_cache.inc';
+
+            $cache = new RSSCache(
+                MODX_BASE_PATH . $this->modx->getCacheFolder() . 'rss/',
+                24 * 60 * 60
+            );
+            if ($cache->check_cache($source) !== 'HIT') {
+                $data = json_decode(file_get_contents($source), true);
+                $cache->set($source, $data);
+            } else {
+                $data = $cache->get($source);
+            }
         } else {
             $data = file_get_contents($source);
             $data = json_decode($data, true);
@@ -66,44 +76,46 @@ class CheckOutdated
     {
         $out = '';
         //search the snippet by name
-
-        $snippet = \EvolutionCMS\Models\SiteSnippet::select('id', 'name', 'description')
-            ->where('name', $name)->where('disabled', 0)->first();
-
-        if (!is_null($snippet)) {
+        $query = $this->modx->db->select(
+            '`id`, `name`, `description`',
+            $this->modx->getFullTableName('site_snippets'),
+            "`name`='" . $this->modx->db->escape($name). "' AND `disabled`=0"
+        );
+        if ($query !== false) {
             $tpl = isset($options['template']) ? $options['template'] :
                 '@CODE:<div class="widget-wrapper alert alert-warning">' .
                     '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
-                    '[+snippet+] <b>[+name+]</b> (version [+currentVersion+]) ' .
-                    ' [+isSecurity:empty:then=`[+isoutdated+] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[+security_reason+]</b></u>.`+]' .
-                    '<br />[+please_update+] <b>[+name+]</b> [+to_latest+]' .
-                    ' ([+min_required+] [+minVersion+]) [+from+]' .
-                    ' <a target="main" href="[+extrasURL+]">[+extras_module+]</a> ' .
-                    ' [+replaced:isnotempty=`[+or_move_to+]: <b>[+replaced+]</b>`+]' .
+                    '[%snippet%] <b>[+name+]</b> (version [+currentVersion+]) ' .
+                    ' [+isSecurity:empty:then=`[%isoutdated%] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[%security_reason%]</b></u>.`+]' .
+                    '<br />[%please_update%] <b>[+name+]</b> [%to_latest%]' .
+                    ' ([%min_required%] [+minVersion+]) [%from%]' .
+                    ' <a target="main" href="[+extrasURL+]">[%extras_module%]</a> ' .
+                    ' [+replaced:isnotempty=`[%or_move_to%]: <b>[+replaced+]</b>`+]' .
                 '</div>';
 
             $minVersion = isset($options['version']) ? $options['version'] : 0;
             $replaced = isset($options['replaced']) ? implode('</b>, </b>', $options['replaced']) : '';
             $isSecurity = !empty($options['security']);
 
-            //extract snippet version from description <strong></strong> tags
-            $currentVersion = $this->getver($snippet->description, 'strong');
-            //check snippet version and return an alert if outdated
-            if (version_compare($currentVersion, $minVersion, 'lt')) {
-                $out .= $this->parseTemplate(
-                    $tpl,
-                    array(
-                        'name' => $snippet->name,
-                        'replaced' => $replaced,
-                        'isSecurity' => $isSecurity,
-                        'minVersion' => $minVersion,
-                        'currentVersion' => $currentVersion,
-                        'extrasID' => $this->getExtrasId(),
-                        'extrasURL' => $this->getExtrasUrl($snippet->name)
-                    )
-                );
+            while ($row = $this->modx->db->getRow($query)) {
+                //extract snippet version from description <strong></strong> tags
+                $currentVersion = $this->getver($row['description'], 'strong');
+                //check snippet version and return an alert if outdated
+                if (version_compare($currentVersion, $minVersion, 'lt')) {
+                    $out .= $this->parseTemplate(
+                        $tpl,
+                        array(
+                            'name' => $row['name'],
+                            'replaced' => $replaced,
+                            'isSecurity' => $isSecurity,
+                            'minVersion' => $minVersion,
+                            'currentVersion' => $currentVersion,
+                            'extrasID' => $this->getExtrasId(),
+                            'extrasURL' => $this->getExtrasUrl($row['name'])
+                        )
+                    );
+                }
             }
-
         }
 
         return $out;
@@ -117,43 +129,46 @@ class CheckOutdated
     public function plugin($name, $options)
     {
         $out = '';
-        //search the plugin by name
-
-        $plugin = \EvolutionCMS\Models\SitePlugin::select('id', 'name', 'description')
-            ->where('name', $name)->where('disabled', 0)->first();
-        if (!is_null($plugin)) {
+        //search the snippet by name
+        $query = $this->modx->db->select(
+            '`id`, `name`, `description`',
+            $this->modx->getFullTableName('site_plugins'),
+            "`name`='" . $this->modx->db->escape($name). "' AND `disabled`=0"
+        );
+        if ($query !== false) {
             $tpl = isset($options['template']) ? $options['template'] :
                 '@CODE:<div class="widget-wrapper alert alert-warning">' .
                 '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
-                '[+plugin+] <b>[+name+]</b> (version [+currentVersion+]) ' .
-                ' [+isSecurity:empty:then=`[+isoutdated+] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[+security_reason+]</b></u>.`+]' .
-                '<br />[+please_update+] <b>[+name+]</b> [+to_latest+]' .
-                ' ([+min_required+] [+minVersion+]) [+from+]' .
-                ' <a target="main" href="[+extrasURL+]">[+extras_module+]</a> ' .
-                ' [+replaced:isnotempty=`[+or_move_to+]: <b>[+replaced+]</b>`+]' .
+                '[%plugin%] <b>[+name+]</b> (version [+currentVersion+]) ' .
+                ' [+isSecurity:empty:then=`[%isoutdated%] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[%security_reason%]</b></u>.`+]' .
+                '<br />[%please_update%] <b>[+name+]</b> [%to_latest%]' .
+                ' ([%min_required%] [+minVersion+]) [%from%]' .
+                ' <a target="main" href="[+extrasURL+]">[%extras_module%]</a> ' .
+                ' [+replaced:isnotempty=`[%or_move_to%]: <b>[+replaced+]</b>`+]' .
                 '</div>';
 
             $minVersion = isset($options['version']) ? $options['version'] : 0;
             $replaced = isset($options['replaced']) ? implode('</b>, </b>', $options['replaced']) : '';
             $isSecurity = !empty($options['security']);
 
-
-            //extract snippet version from description <strong></strong> tags
-            $currentVersion = $this->getver($plugin->description, 'strong');
-            //check snippet version and return an alert if outdated
-            if (version_compare($currentVersion, $minVersion, 'lt')) {
-                $out .= $this->parseTemplate(
-                    $tpl,
-                    array(
-                        'name' => $plugin->name,
-                        'replaced' => $replaced,
-                        'isSecurity' => $isSecurity,
-                        'minVersion' => $minVersion,
-                        'currentVersion' => $currentVersion,
-                        'extrasID' => $this->getExtrasId(),
-                        'extrasURL' => $this->getExtrasUrl($plugin->name)
-                    )
-                );
+            while ($row = $this->modx->db->getRow($query)) {
+                //extract snippet version from description <strong></strong> tags
+                $currentVersion = $this->getver($row['description'], 'strong');
+                //check snippet version and return an alert if outdated
+                if (version_compare($currentVersion, $minVersion, 'lt')) {
+                    $out .= $this->parseTemplate(
+                        $tpl,
+                        array(
+                            'name' => $row['name'],
+                            'replaced' => $replaced,
+                            'isSecurity' => $isSecurity,
+                            'minVersion' => $minVersion,
+                            'currentVersion' => $currentVersion,
+                            'extrasID' => $this->getExtrasId(),
+                            'extrasURL' => $this->getExtrasUrl($row['name'])
+                        )
+                    );
+                }
             }
         }
 
@@ -168,19 +183,22 @@ class CheckOutdated
     public function module($name, $options)
     {
         $out = '';
-        //search the module by name
-        $module = \EvolutionCMS\Models\SiteModule::select('id', 'name', 'description')
-            ->where('name', $name)->where('disabled', 0)->first();
-        if (!is_null($module)) {
+        //search the snippet by name
+        $query = $this->modx->db->select(
+            '`id`, `name`, `description`',
+            $this->modx->getFullTableName('site_modules'),
+            "`name`='" . $this->modx->db->escape($name). "' AND `disabled`=0"
+        );
+        if ($query !== false) {
             $tpl = isset($options['template']) ? $options['template'] :
                 '@CODE:<div class="widget-wrapper alert alert-warning">' .
                 '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
-                '[+lock_element_type_6+] <b>[+name+]</b> (version [+currentVersion+]) ' .
-                ' [+isSecurity:empty:then=`[+isoutdated+] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[+security_reason+]</b></u>.`+]' .
-                '<br />[+please_update+] <b>[+name+]</b> [+to_latest+]' .
-                ' ([+min_required+] [+minVersion+]) [+from+]' .
-                ' <a target="main" href="[+extrasURL+]">[+extras_module+]</a> ' .
-                ' [+replaced:isnotempty=`[+or_move_to+]: <b>[+replaced+]</b>`+]' .
+                '[%lock_element_type_6%] <b>[+name+]</b> (version [+currentVersion+]) ' .
+                ' [+isSecurity:empty:then=`[%isoutdated%] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[%security_reason%]</b></u>.`+]' .
+                '<br />[%please_update%] <b>[+name+]</b> [%to_latest%]' .
+                ' ([%min_required%] [+minVersion+]) [%from%]' .
+                ' <a target="main" href="[+extrasURL+]">[%extras_module%]</a> ' .
+                ' [+replaced:isnotempty=`[%or_move_to%]: <b>[+replaced+]</b>`+]' .
                 '</div>';
 
             $minVersion = isset($options['version']) ? $options['version'] : 0;
@@ -189,19 +207,19 @@ class CheckOutdated
 
             while ($row = $this->modx->db->getRow($query)) {
                 //extract snippet version from description <strong></strong> tags
-                $currentVersion = $this->getver($module->description, 'strong');
+                $currentVersion = $this->getver($row['description'], 'strong');
                 //check snippet version and return an alert if outdated
                 if (version_compare($currentVersion, $minVersion, 'lt')) {
                     $out .= $this->parseTemplate(
                         $tpl,
                         array(
-                            'name' => $module->name,
+                            'name' => $row['name'],
                             'replaced' => $replaced,
                             'isSecurity' => $isSecurity,
                             'minVersion' => $minVersion,
                             'currentVersion' => $currentVersion,
                             'extrasID' => $this->getExtrasId(),
-                            'extrasURL' => $this->getExtrasUrl($module->name)
+                            'extrasURL' => $this->getExtrasUrl($row['name'])
                         )
                     );
                 }
@@ -226,8 +244,8 @@ class CheckOutdated
                 '@CODE:<div class="widget-wrapper alert alert-danger">' .
                     '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
                     '<b>[+path+]</b> ' .
-                    ' [+isSecurity:empty:then=`[+isoutdated+] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[+security_reason+]</b></u>.`+]' .
-                    '<br />[+please_delete+]. [+if_dont_use+]' .
+                    ' [+isSecurity:empty:then=`[%isoutdated%] <b>Evolution [+evo_cms_version+]</b>`:else=`<u><b>[%security_reason%]</b></u>.`+]' .
+                    '<br />[%please_delete%]. [%if_dont_use%]' .
                 '</div>';
 
             $out = $this->parseTemplate($tpl, compact('path', 'isSecurity'));
@@ -250,9 +268,9 @@ class CheckOutdated
             $tpl = isset($options['template']) ? $options['template'] :
                 '@CODE: <div class="widget-wrapper alert alert-danger">' .
                     '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
-                    '[+manager_theme+] <b>[+theme+]</b> ' .
-                    '[+isSecurity:empty:then=`[+isoutdated+] <b>Evolution [+evo_cms_version+]</b>`:else=`- <u><b>[+security_reason+]</b></u>.`+]' .
-                    '<br />[+please_delete+] [+from_folder+] [+path+]. [+if_dont_use+]' .
+                    '[%manager_theme%] <b>[+theme+]</b> ' .
+                    '[+isSecurity:empty:then=`[%isoutdated%] <b>Evolution [+evo_cms_version+]</b>`:else=`- <u><b>[%security_reason%]</b></u>.`+]' .
+                    '<br />[%please_delete%] [%from_folder%] [+path+]. [%if_dont_use%]' .
                 '</div>';
 
             $out = $this->parseTemplate(
@@ -280,10 +298,10 @@ class CheckOutdated
             $tpl = isset($options['template']) ? $options['template'] :
                 '@CODE:<div class="widget-wrapper alert alert-warning">' .
                     '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' .
-                    '<b>[+settings_config+] > [+' . $key . '_title+]</b> ' .
-                    '([+oldUrl+]) [+outdated+]. ' .
-                    '[+please_download_and_install+] <b>UpdateEvosRss</b>  [+from+]' .
-                    ' <a target="main" href="index.php?a=112&id=[+extrasID+]">[+extras_module+]</a>' .
+                    '<b>[+settings_config+] > [%' . $key . '_title%]</b> ' .
+                    '([+oldUrl+]) [%outdated%]. ' .
+                    '[%please_download_and_install%] <b>UpdateEvoRss</b>  [%from%]' .
+                    ' <a target="main" href="index.php?a=112&id=[+extrasID+]">[%extras_module%]</a>' .
                 '</div>';
 
             $out = $this->parseTemplate(
@@ -326,11 +344,10 @@ class CheckOutdated
      */
     public function findExtrasId()
     {
-        $moduleId = \EvolutionCMS\Models\SiteModule::select('id')->where('name', 'Extras')->where('disabled', 0)->first();
-        if (!is_null($moduleId)) {
-            return (int)$moduleId->id;
-        }
-        return 0;
+        return (int)$this->modx->db->getValue(
+            'SELECT id FROM ' . $this->modx->getFullTableName('site_modules') . ' WHERE ' .
+            "`name`='Extras' AND disabled=0"
+        );
     }
 
     /**
@@ -346,11 +363,11 @@ class CheckOutdated
      */
     public function findPluginId()
     {
-        $pluginId = \EvolutionCMS\Models\SitePlugin::select('id')->where('name', $this->pluginName)->where('disabled', 0)->first();
-        if (!is_null($pluginId)) {
-            return (int)$pluginId->id;
-        }
-        return 0;
+        $query = $this->modx->db->query(
+            'SELECT id FROM ' . $this->modx->getFullTableName('site_plugins') . ' WHERE ' .
+            "`name`='" . $this->modx->db->escape($this->pluginName) ."' AND disabled=0"
+        );
+        return (int)$this->modx->db->getValue($query);
     }
 
     /**
@@ -398,13 +415,6 @@ class CheckOutdated
     public function setLang($lexicon = array())
     {
         $lang = $this->modx->getConfig('manager_language');
-        if (file_exists( __DIR__ .  '/lang/'.$lang.'/core.inc.php')){
-            include_once(__DIR__ .  '/lang/'.$lang.'/core.inc.php');
-        } else {
-            include_once(__DIR__ .  '/lang/english/core.inc.php');
-        }
-        $this->lang = $_lang;
-        /*
         $this->lang = new Helpers\Lexicon($this->modx, array(
             'lang' => $lang,
             'langDir' => 'assets/plugins/extrascheck/lang/'
@@ -413,7 +423,7 @@ class CheckOutdated
         if (!empty($lang)) {
             $this->lang->fromArray(array($lang => $lexicon));
         }
-        $this->lang->loadLang();*/
+        $this->lang->loadLang();
     }
 
     /**
@@ -440,11 +450,10 @@ class CheckOutdated
     public function parseTemplate($tpl, $data = array())
     {
         return $this->tpl->parseChunk(
-            ($tpl),
+            $this->lang->parseLang($tpl),
             array_merge(
                 array('evo_cms_version' => $this->modx->getVersionData('version')),
-                $data,
-                $this->lang
+                $data
             ),
             true,
             false
@@ -461,8 +470,7 @@ class CheckOutdated
     {
         $content = "/<$tag>(.*?)<\/$tag>/";
         preg_match($content, $string, $text);
-        if(isset($text[1]))
+
         return $text[1];
-        else return false;
     }
 }

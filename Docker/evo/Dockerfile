@@ -1,4 +1,4 @@
-FROM php:8.1-apache
+FROM php:7.4-apache
 RUN a2enmod rewrite 
 RUN apt-get update --fix-missing \
     && apt-get install -y --no-install-recommends \
@@ -17,7 +17,7 @@ RUN docker-php-ext-configure gd \
     --with-jpeg \
     --with-xpm \
     --with-freetype \
-    && docker-php-ext-install mbstring pdo pdo_mysql zip gd \
+    && docker-php-ext-install mbstring mysqli zip gd \
     && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get clean

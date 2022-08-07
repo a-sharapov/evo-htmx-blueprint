@@ -7,20 +7,19 @@ if (!$modx->hasPermission('save_template')) {
 }
 
 $id = (int)$_POST['id'];
-$name = trim($_POST['name']);
-$description = $_POST['description'];
-$caption = $_POST['caption'];
-$type = $_POST['type'];
-$elements = $_POST['elements'];
-$default_text = $_POST['default_text'];
-$rank = isset ($_POST['rank']) ? $_POST['rank'] : 0;
-$display = $_POST['display'];
-$params = $_POST['params'];
-$locked = isset($_POST['locked']) && $_POST['locked'] == 'on' ? 1 : 0;
+$name = $modx->db->escape(trim($_POST['name']));
+$description = $modx->db->escape($_POST['description']);
+$caption = $modx->db->escape($_POST['caption']);
+$type = $modx->db->escape($_POST['type']);
+$elements = $modx->db->escape($_POST['elements']);
+$default_text = $modx->db->escape($_POST['default_text']);
+$rank = isset ($_POST['rank']) ? $modx->db->escape($_POST['rank']) : 0;
+$display = $modx->db->escape($_POST['display']);
+$params = $modx->db->escape($_POST['params']);
+$locked = $_POST['locked'] == 'on' ? 1 : 0;
 $origin = isset($_REQUEST['or']) ? (int)$_REQUEST['or'] : 76;
 $originId = isset($_REQUEST['oid']) ? (int)$_REQUEST['oid'] : null;
 $currentdate = time() + $modx->config['server_offset_time'];
-$properties = getProperties($type);
 
 //Kyle Jaebker - added category support
 if (empty($_POST['newcategory']) && $_POST['categoryid'] > 0) {
@@ -38,6 +37,9 @@ if (empty($_POST['newcategory']) && $_POST['categoryid'] > 0) {
 $name = $name != '' ? $name : "Untitled variable";
 $caption = $caption != '' ? $caption : $name;
 
+// get table names
+$tbl_site_tmplvars = $modx->getFullTableName('site_tmplvars');
+
 switch ($_POST['mode']) {
     case '300':
 
@@ -48,19 +50,21 @@ switch ($_POST['mode']) {
         ));
 
         // disallow duplicate names for new tvs
-        if (EvolutionCMS\Models\SiteTmplvar::where('name', '=', $name)->first()) {
-            $modx->getManagerApi()->saveFormValues(300);
+        $rs = $modx->db->select('COUNT(*)', $tbl_site_tmplvars, "name='{$name}'");
+        $count = $modx->db->getValue($rs);
+        if ($count > 0) {
+            $modx->manager->saveFormValues(300);
             $modx->webAlertAndQuit(sprintf($_lang['duplicate_name_found_general'], $_lang['tv'], $name), "index.php?a=300");
         }
         // disallow reserved names
-        if (in_array($name, array('id', 'type', 'contentType', 'pagetitle', 'longtitle', 'description', 'alias', 'link_attributes', 'published', 'pub_date', 'unpub_date', 'parent', 'isfolder', 'introtext', 'content', 'richtext', 'template', 'menuindex', 'searchable', 'cacheable', 'createdby', 'createdon', 'editedby', 'editedon', 'deleted', 'deletedon', 'deletedby', 'publishedon', 'publishedby', 'menutitle', 'hide_from_tree', 'privateweb', 'privatemgr', 'content_dispo', 'hidemenu', 'alias_visible', 'id', 'oldusername', 'oldemail', 'newusername', 'fullname', 'first_name', 'middle_name', 'last_name', 'verified', 'newpassword', 'newpasswordcheck', 'passwordgenmethod', 'passwordnotifymethod', 'specifiedpassword', 'confirmpassword', 'email', 'phone', 'mobilephone', 'fax', 'dob', 'country', 'street', 'city', 'state', 'zip', 'gender', 'photo', 'comment', 'role', 'failedlogincount', 'blocked', 'blockeduntil', 'blockedafter', 'user_groups', 'mode', 'blockedmode', 'stay', 'save', 'theme_refresher', 'username'))) {
+        if (in_array($name, array('id', 'type', 'contentType', 'pagetitle', 'longtitle', 'description', 'alias', 'link_attributes', 'published', 'pub_date', 'unpub_date', 'parent', 'isfolder', 'introtext', 'content', 'richtext', 'template', 'menuindex', 'searchable', 'cacheable', 'createdby', 'createdon', 'editedby', 'editedon', 'deleted', 'deletedon', 'deletedby', 'publishedon', 'publishedby', 'menutitle', 'donthit', 'privateweb', 'privatemgr', 'content_dispo', 'hidemenu', 'alias_visible'))) {
             $_POST['name'] = '';
-            $modx->getManagerApi()->saveFormValues(300);
+            $modx->manager->saveFormValues(300);
             $modx->webAlertAndQuit(sprintf($_lang['reserved_name_warning'], $_lang['tv'], $name), "index.php?a=300");
         }
 
         // Add new TV
-        $field = array(
+        $newid = $modx->db->insert(array(
             'name' => $name,
             'description' => $description,
             'caption' => $caption,
@@ -73,16 +77,12 @@ switch ($_POST['mode']) {
             'locked' => $locked,
             'category' => $categoryid,
             'createdon' => $currentdate,
-            'editedon' => $currentdate,
-            'properties' => $properties
-        );
-        $tmplVar= EvolutionCMS\Models\SiteTmplvar::create($field);
-        $newid = $tmplVar->getKey();
+            'editedon' => $currentdate
+        ), $tbl_site_tmplvars);
 
         // save access permissions
-        saveTemplateVarAccess($newid);
-        saveDocumentAccessPermissons($newid);
-        saveVarRoles($newid);
+        saveTemplateVarAccess();
+        saveDocumentAccessPermissons();
 
         // invoke OnTVFormSave event
         $modx->invokeEvent("OnTVFormSave", array(
@@ -114,18 +114,19 @@ switch ($_POST['mode']) {
         ));
 
         // disallow duplicate names for tvs
-        if (EvolutionCMS\Models\SiteTmplvar::where('name', '=', $name)->where('id', '!=', $id)->first()) {
-            $modx->getManagerApi()->saveFormValues(300);
+        $rs = $modx->db->select('COUNT(*)', $tbl_site_tmplvars, "name='{$name}' AND id!='{$id}'");
+        if ($modx->db->getValue($rs) > 0) {
+            $modx->manager->saveFormValues(300);
             $modx->webAlertAndQuit(sprintf($_lang['duplicate_name_found_general'], $_lang['tv'], $name), "index.php?a=301&id={$id}");
         }
         // disallow reserved names
-        if (in_array($name, array('id', 'type', 'contentType', 'pagetitle', 'longtitle', 'description', 'alias', 'link_attributes', 'published', 'pub_date', 'unpub_date', 'parent', 'isfolder', 'introtext', 'content', 'richtext', 'template', 'menuindex', 'searchable', 'cacheable', 'createdby', 'createdon', 'editedby', 'editedon', 'deleted', 'deletedon', 'deletedby', 'publishedon', 'publishedby', 'menutitle', 'hide_from_tree', 'privateweb', 'privatemgr', 'content_dispo', 'hidemenu', 'alias_visible', 'id', 'oldusername', 'oldemail', 'newusername', 'fullname', 'first_name', 'middle_name', 'last_name', 'verified', 'newpassword', 'newpasswordcheck', 'passwordgenmethod', 'passwordnotifymethod', 'specifiedpassword', 'confirmpassword', 'email', 'phone', 'mobilephone', 'fax', 'dob', 'country', 'street', 'city', 'state', 'zip', 'gender', 'photo', 'comment', 'role', 'failedlogincount', 'blocked', 'blockeduntil', 'blockedafter', 'user_groups', 'mode', 'blockedmode', 'stay', 'save', 'theme_refresher', 'username'))) {
-            $modx->getManagerApi()->saveFormValues(300);
+        if (in_array($name, array('id', 'type', 'contentType', 'pagetitle', 'longtitle', 'description', 'alias', 'link_attributes', 'published', 'pub_date', 'unpub_date', 'parent', 'isfolder', 'introtext', 'content', 'richtext', 'template', 'menuindex', 'searchable', 'cacheable', 'createdby', 'createdon', 'editedby', 'editedon', 'deleted', 'deletedon', 'deletedby', 'publishedon', 'publishedby', 'menutitle', 'donthit', 'privateweb', 'privatemgr', 'content_dispo', 'hidemenu', 'alias_visible'))) {
+            $modx->manager->saveFormValues(300);
             $modx->webAlertAndQuit(sprintf($_lang['reserved_name_warning'], $_lang['tv'], $name), "index.php?a=301&id={$id}");
         }
 
         // update TV
-        $field = array(
+        $modx->db->update(array(
             'name' => $name,
             'description' => $description,
             'caption' => $caption,
@@ -137,16 +138,12 @@ switch ($_POST['mode']) {
             'rank' => $rank,
             'locked' => $locked,
             'category' => $categoryid,
-            'editedon' => $currentdate,
-            'properties' => $properties
-        );
-        $tmplVar = EvolutionCMS\Models\SiteTmplvar::findOrFail($id);
-        $tmplVar->update($field);
+            'editedon' => $currentdate
+        ), $tbl_site_tmplvars, "id='{$id}'");
 
         // save access permissions
-        saveTemplateVarAccess($id);
-        saveDocumentAccessPermissons($id);
-        saveVarRoles($id);
+        saveTemplateVarAccess();
+        saveDocumentAccessPermissons();
 
         // invoke OnTVFormSave event
         $modx->invokeEvent("OnTVFormSave", array(
@@ -176,44 +173,66 @@ switch ($_POST['mode']) {
         $modx->webAlertAndQuit("No operation set in request.");
 }
 
-function getProperties($type) {
-    // default properties for TV with number type
-    $current = isset($_POST['properties']) ? json_decode($_POST['properties'], true) : null;
-    switch ($type) {
-        case 'number':
-            $properties = $current ?? [
-                'step' => [
-                    [
-                        'label' => 'step',
-                        'type' => 'text',
-                        'value' => '1',
-                        'default' => '1',
-                        'desc' => ''
-                    ]
-                ],
-                'min' => [
-                    [
-                        'label' => 'min',
-                        'type' => 'text',
-                        'value' => '',
-                        'default' => '',
-                        'desc' => ''
-                    ]
-                ],
-                'max' => [
-                    [
-                        'label' => 'max',
-                        'type' => 'text',
-                        'value' => '',
-                        'default' => '',
-                        'desc' => ''
-                    ]
-                ]
-            ];
-            break;
-        default:
-            $properties = [];
+/**
+ * @return void
+ */
+function saveTemplateVarAccess()
+{
+    global $id, $newid;
+    $modx = evolutionCMS();
+
+    if ($newid) {
+        $id = $newid;
+    }
+    $templates = $_POST['template']; // get muli-templates based on S.BRENNAN mod
+
+    // update template selections
+    $tbl_site_tmplvar_templates = $modx->getFullTableName('site_tmplvar_templates');
+
+    $getRankArray = array();
+
+    $getRank = $modx->db->select("`templateid`, `rank`", $tbl_site_tmplvar_templates, "tmplvarid='{$id}'");
+
+    while ($row = $modx->db->getRow($getRank)) {
+        $getRankArray[$row['templateid']] = $row['rank'];
     }
 
-    return $properties;
+    $modx->db->delete($tbl_site_tmplvar_templates, "tmplvarid = '{$id}'");
+    if (!empty($templates)) {
+        for ($i = 0; $i < count($templates); $i++) {
+            $setRank = ($getRankArray[$templates[$i]]) ? $getRankArray[$templates[$i]] : 0;
+            $modx->db->insert(array(
+                'tmplvarid' => $id,
+                'templateid' => $templates[$i],
+                'rank' => $setRank,
+            ), $tbl_site_tmplvar_templates);
+        }
+    }
+}
+
+function saveDocumentAccessPermissons()
+{
+    global $id, $newid;
+    $modx = evolutionCMS(); global $use_udperms;
+
+    $tbl_site_tmplvar_templates = $modx->getFullTableName('site_tmplvar_access');
+
+    if ($newid) {
+        $id = $newid;
+    }
+    $docgroups = $_POST['docgroups'];
+
+    // check for permission update access
+    if ($use_udperms == 1) {
+        // delete old permissions on the tv
+        $modx->db->delete($tbl_site_tmplvar_templates, "tmplvarid='{$id}'");
+        if (is_array($docgroups)) {
+            foreach ($docgroups as $value) {
+                $modx->db->insert(array(
+                    'tmplvarid' => $id,
+                    'documentgroup' => stripslashes($value),
+                ), $tbl_site_tmplvar_templates);
+            }
+        }
+    }
 }

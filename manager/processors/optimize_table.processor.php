@@ -15,9 +15,7 @@ if (isset($_REQUEST['t'])) {
 	// Set the item name for logger
 	$_SESSION['itemname'] = $_REQUEST['t'];
 
-    if($modx->getDatabase()->getConfig('driver') != 'pgsql'){
-	    $modx->getDatabase()->optimize($_REQUEST['t']);
-    }
+	$modx->db->optimize($_REQUEST['t']);
 
 } elseif (isset($_REQUEST['u'])) {
 
@@ -27,12 +25,13 @@ if (isset($_REQUEST['t'])) {
 
 	// Set the item name for logger
 	$_SESSION['itemname'] = $_REQUEST['u'];
-    \DB::table(\DB::raw($_REQUEST['u']))->truncate();
+
+	$modx->db->truncate($_REQUEST['u']);
 
 } else {
 	$modx->webAlertAndQuit($_lang["error_no_optimise_tablename"]);
 }
 
-$mode = (int)get_by_key($_REQUEST, 'mode', 93, 'is_scalar');
+$mode = (int)$_REQUEST['mode'];
 $header="Location: index.php?a={$mode}&s=4";
 header($header);

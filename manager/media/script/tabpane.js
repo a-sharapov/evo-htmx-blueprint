@@ -102,19 +102,6 @@ function WebFXTabPane(el, bUseCookie)
 
 WebFXTabPane.prototype = {
   classNameTag: 'dynamic-tab-pane-control',
-  setSelectedTab: function(id) {
-    var found = null;
-    for (const [index, page] of this.pages.entries()) {
-      if(page.element.id === id) {
-        found = index;
-        break;
-      }
-    }
-    if(found !== null) {
-      this.setSelectedIndex(found);
-    } else {
-    }
-  },
   setSelectedIndex: function(n) {
     if (this.selectedIndex !== n) {
       if (this.selectedIndex != null && this.pages[this.selectedIndex] != null) {
@@ -153,6 +140,21 @@ WebFXTabPane.prototype = {
     }
 
     return tp;
+  },
+  removeTabPage: function(oElement) {
+    if (oElement.tabPage) {
+      var tab  = oElement.tabPage.tab,
+          span = oElement.tabPage.aElement;
+
+      while (span.hasChildNodes()) {
+        tab.appendChild(span.firstChild);
+      }
+
+      tab.removeChild(span);
+
+      oElement.insertBefore(tab, oElement.firstChild);
+      oElement.tabPage.dispose();
+    }
   },
   dispose: function() {
     this.element.tabPane = null;
@@ -214,6 +216,7 @@ function WebFXTabPage(el, tabPane, nIndex, callBackFnc)
 
   var a = document.createElement('SPAN');
   this.aElement = a;
+  a.href = '#';
   a.onclick = function() { return false; };
   while (this.tab.hasChildNodes()) {
     a.appendChild(this.tab.firstChild);
@@ -223,13 +226,7 @@ function WebFXTabPage(el, tabPane, nIndex, callBackFnc)
 
   // hook up events, using DOM0
   var oThis = this;
-  this.tab.onclick = function() {
-    if (oThis.aElement.firstElementChild && oThis.aElement.firstElementChild.tagName === 'A') {
-      document.location.href = oThis.aElement.firstElementChild.href
-    } else {
-      return oThis.select();
-    }
-  };
+  this.tab.onclick = function() { return oThis.select(); };
   this.tab.onmouseover = function() { oThis.tabOver(oThis); };
   this.tab.onmouseout = function() { oThis.tabOut(oThis); };
 }
@@ -291,7 +288,7 @@ function setupAllTabs()
   var tabPaneRe = /tab\-pane/;
   var tabPageRe = /tab\-page/;
   var cn, el;
-  var parentTabPane;
+  var panes = [];
 
   for (var i = 0; i < l; i++) {
     el = all[i];
@@ -300,13 +297,25 @@ function setupAllTabs()
     // no className
     if (cn === '') continue;
 
+    if (el.tabPane) {
+      panes.push(el);
+    }
+
     // uninitiated tab pane
     if (tabPaneRe.test(cn) && !el.tabPane) {
       new WebFXTabPane(el);
     }// unitiated tab page wit a valid tab pane parent
-    else if (tabPageRe.test(cn) && !el.tabPage &&
-        tabPaneRe.test(el.parentNode.className)) {
+    else if (tabPageRe.test(cn) && !el.tabPage && tabPaneRe.test(el.parentNode.className)) {
       el.parentNode.tabPane.addTabPage(el);
+    }
+  }
+  
+  for (i = 0; i < panes.length; i++) {
+    var pane  = panes[i].tabPane,
+        index = pane.getSelectedIndex();
+
+    if (!pane.pages[index]) {
+      pane.setSelectedIndex(pane.pages.length - 1);
     }
   }
 }

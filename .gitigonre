@@ -1,53 +1,9 @@
-# assets
-assets/.thumbs/*
-!assets/.thumbs/index.html
-!assets/.thumbs/.htaccess
-
-assets/backup/*
-!assets/backup/index.html
-!assets/backup/.htaccess
-
+# cache
 assets/cache/*
+!assets/cache/images/*
+!assets/cache/rss/*
 !assets/cache/.htaccess
 !assets/cache/index.html
-!assets/cache/siteManager.php
-!assets/cache/sitePublishing.idx.php
-!assets/cache/images/index.html
-!assets/cache/rss/index.html
-!assets/cache/updater/index.html
-
-# Core
-/core/.install
-
-# Manager
-/manager/includes/config.inc.php
-/manager/media/style/default/css/styles.min.css
-
-# Composer
-/composer.phar
-
-!vendor/.htaccess
-!vendor/index.html
-
-# IDE Helper
-modx_evolution.IDEhelper.php
-_ide_helper.php
-.phpstorm.meta.php
-
-#node.JS
-node_modules
-npm-debug.log
-
-#docker
-Docker/logs/*.*
-Docker/logs/apache2/*.*
-
-# cache
-core/storage/*
-core/storage/blade/*
-core/storage/cache/*
-core/storage/bootstrap/*
-core/storage/sessions/*
 
 # System
 ftpsync.settings

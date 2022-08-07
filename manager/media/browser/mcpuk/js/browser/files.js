@@ -164,7 +164,6 @@ browser.returnFile = function(file) {
 
     if (this.opener.TinyMCE4) {
         var win = window.opener ? window.opener : window.parent;
-        win.tinymceCallBackURL = fileURL;
         $(win.document).find('#' + this.opener.TinyMCE4).val(fileURL);
         win.tinyMCE.activeEditor.windowManager.close();
 
@@ -175,7 +174,7 @@ browser.returnFile = function(file) {
     } else if (this.opener.FCKeditor) {
         window.opener.SetUrl(fileURL) ;
         window.close() ;
-
+        
     } else if (this.opener.TinyMCE) {
         var win = tinyMCEPopup.getWindowArg('window');
         win.document.getElementById(tinyMCEPopup.getWindowArg('input')).value = fileURL;

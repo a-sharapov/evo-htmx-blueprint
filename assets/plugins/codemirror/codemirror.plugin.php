@@ -15,9 +15,7 @@
  *
  * @see         https://github.com/Mihanik71/CodeMirror-MODx
  */
-global $content;
-
-$which_editor = $modx->getConfig('which_editor');
+global $content, $which_editor;
 $textarea_name = 'post';
 $mode = 'htmlmixed';
 $lang = 'htmlmixed';
@@ -51,19 +49,20 @@ if (!empty($_COOKIE['MODX_themeMode'])) {
  * This plugin is only valid in "text" mode. So check for the current Editor
  */
 $prte = (isset($_POST['which_editor']) ? $_POST['which_editor'] : '');
-$srte = ($modx->config['use_editor'] ? $modx->getConfig('which_editor') : 'none');
-$xrte = isset($content['richtext']) ? $content['richtext'] : '';
+$srte = ($modx->config['use_editor'] ? $modx->config['which_editor'] : 'none');
+$xrte = $content['richtext'];
 $tvMode = false;
 $limitedHeight = false;
 /*
  * Switch event
  */
-switch($modx->event->name) {
+switch($modx->Event->name) {
 	case 'OnTempFormRender'   :
+		$object_name = $content['templatename'];
 		$rte = ($prte ? $prte : 'none');
 		break;
 	case 'OnChunkFormRender'  :
-		$rte = isset($editor) ? $editor : 'none';
+		$rte = isset($which_editor) ? $which_editor : 'none';
 		break;
 
 	case 'OnRichTextEditorInit':
@@ -71,9 +70,10 @@ switch($modx->event->name) {
 			return;
 		}
 		$textarea_name = $modx->event->params['elements'];
+		$object_name = $content['pagetitle'];
 		$rte = 'none';
 		$tvMode = true;
-		$contentType = $content['contentType'] ?? $modx->event->params['contentType'];
+		$contentType = $content['contentType'] ? $content['contentType'] : $modx->event->params['contentType'];
 
 		/*
 		* Switch contentType for doc
@@ -102,8 +102,9 @@ switch($modx->event->name) {
 			return;
 		}
 		$textarea_name = 'ta';
+		$object_name = $content['pagetitle'];
 		$xrte = (('htmlmixed' == $mode) ? $xrte : 0);
-        $rte = ($prte ? $prte : (isset($content['id']) ? ($xrte ? $srte : 'none') : $srte));
+		$rte = ($prte ? $prte : ($content['id'] ? ($xrte ? $srte : 'none') : $srte));
 		$contentType = $content['contentType'];
 		/*
 		* Switch contentType for doc
@@ -149,7 +150,6 @@ switch($modx->event->name) {
 		$this->logEvent(1, 2, 'Undefined event : <b>' . $modx->Event->name . '</b> in <b>' . $this->Event->activePlugin . '</b> Plugin', 'CodeMirror Plugin : ' . $modx->Event->name);
 }
 $output = '';
-
 if(('none' == $rte) && $mode && !defined('INIT_CODEMIRROR')) {
 	define('INIT_CODEMIRROR', 1);
 	$output = <<< HEREDOC
@@ -341,10 +341,8 @@ if(('none' == $rte) && $mode && $elements !== NULL) {
 		} else {
 			$setHeight = '';
 		};
-        if(isset($content['id']))
-		    $object_id = md5($modx->event->name . '-' . $content['id'] . '-' . $el);
-        else
-            $object_id = md5($modx->event->name . '-' . $el);
+
+		$object_id = md5($evt->name . '-' . $content['id'] . '-' . $el);
 
 		$output .= "
 			<script>
@@ -407,4 +405,5 @@ if(('none' == $rte) && $mode && $elements !== NULL) {
 			</script>\n";
 	};
 };
-$modx->event->addOutput($output);
+
+$modx->Event->output($output);

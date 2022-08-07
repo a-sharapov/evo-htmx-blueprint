@@ -1,20 +1,20 @@
 <?php
-/*
 error_reporting(E_ALL & ~E_NOTICE);
 
 define('MODX_BASE_PATH',realpath('../../../../').'/');
-include_once(MODX_BASE_PATH."assets/cache/siteManager.php");*/
+include_once(MODX_BASE_PATH."assets/cache/siteManager.php");
 define('MGR',MODX_BASE_PATH.MGR_DIR);
-/*define('MODX_API_MODE', true);
+define('MODX_API_MODE', true);
 define('IN_MANAGER_MODE', true);
-include_once (MODX_BASE_PATH . '/index.php');*/
-$modx = EvolutionCMS();
+include_once (MODX_BASE_PATH . 'index.php');
+$modx->db->connect();
+$modx->getSettings();
 $modx->invokeEvent('OnManagerPageInit');
 if( ! defined('IN_MANAGER_MODE') || IN_MANAGER_MODE !== true || ! $modx->hasPermission('exec_module')) {
 	die('<b>INCLUDE_ORDERING_ERROR</b><br /><br />Please use the EVO Content Manager instead of accessing this file directly.');
 }
 
-$moduleurl = MODX_SITE_URL.'assets/modules/store/installer/index.php';
+$moduleurl = $modx->config['site_url'].'assets/modules/store/installer/index.php';
 $modulePath = MODX_BASE_PATH.'assets/modules/store/installer/';
 $self = $modulePath.'/index.php';
 require_once($modulePath."/functions.php");
@@ -26,7 +26,7 @@ if (file_exists($modulePath.'/lang/'.$lang.'.inc.php')){
 	include_once($modulePath.'/lang/'.$lang.'.inc.php');
 
 } else {
-	include_once($modulePath.'/lang/en.inc.php');
+	include_once($modulePath.'/lang/english.inc.php');
 }
 include_once(MODX_BASE_PATH."assets/cache/siteManager.php");
 require_once(MGR.'/includes/version.inc.php');
@@ -58,7 +58,7 @@ ob_start();
 echo '<!DOCTYPE html>
 <html><head><title>Install</title>
 <meta http-equiv="Content-Type" content="text/html; charset="utf-8" />
-<link rel="stylesheet" href="'.MODX_SITE_URL.'assets/modules/store/installer/style.css" type="text/css" media="screen" /></head>
+<link rel="stylesheet" href="'.$modx->config['site_url'].'assets/modules/store/installer/style.css" type="text/css" media="screen" /></head>
 <body><div id="contentarea"><div class="container_12"><br>';
 
 

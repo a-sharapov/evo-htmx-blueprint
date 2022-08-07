@@ -6,7 +6,8 @@ if(!$modx->hasPermission('delete_document')) {
 	$modx->webAlertAndQuit($_lang["error_no_privileges"]);
 }
 
-$ids = \EvolutionCMS\Models\SiteContent::query()->withTrashed()->where('deleted',1)->pluck('id')->toArray();
+$rs = $modx->db->select('id', $modx->getFullTableName('site_content'), "deleted=1");
+$ids = $modx->db->getColumn('id', $rs);
 
 // invoke OnBeforeEmptyTrash event
 $modx->invokeEvent("OnBeforeEmptyTrash",
@@ -15,13 +16,21 @@ $modx->invokeEvent("OnBeforeEmptyTrash",
 						));
 
 // remove the document groups link.
-\EvolutionCMS\Models\DocumentGroup::query()->whereIn('document', $ids)->delete();
+$sql = "DELETE document_groups
+		FROM ".$modx->getFullTableName('document_groups')." AS document_groups
+		INNER JOIN ".$modx->getFullTableName('site_content')." AS site_content ON site_content.id = document_groups.document
+		WHERE site_content.deleted=1";
+$modx->db->query($sql);
 
 // remove the TV content values.
-\EvolutionCMS\Models\SiteTmplvarContentvalue::query()->whereIn('contentid', $ids)->delete();
+$sql = "DELETE site_tmplvar_contentvalues
+		FROM ".$modx->getFullTableName('site_tmplvar_contentvalues')." AS site_tmplvar_contentvalues
+		INNER JOIN ".$modx->getFullTableName('site_content')." AS site_content ON site_content.id = site_tmplvar_contentvalues.contentid
+		WHERE site_content.deleted=1";
+$modx->db->query($sql);
 
 //'undelete' the document.
-\EvolutionCMS\Models\SiteContent::query()->where('deleted', 1)->forceDelete();
+$modx->db->delete($modx->getFullTableName('site_content'), "deleted=1");
 
 	// invoke OnEmptyTrash event
 	$modx->invokeEvent("OnEmptyTrash",

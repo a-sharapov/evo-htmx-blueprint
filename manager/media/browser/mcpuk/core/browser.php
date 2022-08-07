@@ -307,12 +307,12 @@ class browser extends uploader
         if (is_dir($thumbDir)) {
             @rename($thumbDir, dirname($thumbDir) . "/$newName");
         }
-
         $this->modx->invokeEvent('OnFileBrowserRename', array(
             'element' => 'dir',
             'filepath' => realpath($dir),
             'newname' => $newName
         ));
+
         return json_encode(array('name' => $newName));
     }
 
@@ -1032,9 +1032,7 @@ class browser extends uploader
                         ($cdir['name'] == $path[$index + 1])
                     )
                 ) {
-                    if($index + 1 <=(count($path) - 1)) {
-                        $dirs[$i]['dirs'] = $this->getTree($dir, $index + 1);
-                    }
+                    $dirs[$i]['dirs'] = $this->getTree($dir, $index + 1);
                     if (!is_array($dirs[$i]['dirs']) || !count($dirs[$i]['dirs'])) {
                         unset($dirs[$i]['dirs']);
                         continue;

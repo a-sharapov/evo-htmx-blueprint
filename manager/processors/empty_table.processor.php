@@ -6,7 +6,7 @@ if(!$modx->hasPermission('settings')) {
 	$modx->webAlertAndQuit($_lang["error_no_privileges"]);
 }
 
-\EvolutionCMS\Models\ManagerLog::query()->truncate();
+$modx->db->truncate($modx->getFullTableName('manager_log'));
 
 $header="Location: index.php?a=13";
 header($header);
